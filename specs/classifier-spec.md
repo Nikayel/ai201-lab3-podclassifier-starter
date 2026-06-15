@@ -11,21 +11,22 @@ your answers here become the blueprint for `build_few_shot_prompt()` and
 ## build_few_shot_prompt(labeled_examples, description)
 
 ### What it does
+
 Constructs a prompt string for the LLM that includes the task instructions,
 all labeled training examples, and the new episode description to classify.
 
 ### Inputs
 
-| Parameter | Type | Description |
-|---|---|---|
+| Parameter          | Type         | Description                                                                                                          |
+| ------------------ | ------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `labeled_examples` | `list[dict]` | Each dict has `"title"`, `"description"`, `"label"` (and others). These are the examples you labeled in Milestone 1. |
-| `description` | `str` | The episode description to classify. |
+| `description`      | `str`        | The episode description to classify.                                                                                 |
 
 ### Output
 
-| Return value | Type | Description |
-|---|---|---|
-| prompt | `str` | A complete prompt string ready to send to the LLM. |
+| Return value | Type  | Description                                        |
+| ------------ | ----- | -------------------------------------------------- |
+| prompt       | `str` | A complete prompt string ready to send to the LLM. |
 
 ---
 
@@ -91,10 +92,14 @@ the format below:" followed by the output format you chose.
 **What output format should you request from the LLM?**
 
 ```
-[blank — you need to parse the response in classify_episode(). What format
-makes parsing reliable? Think about: a single label on its own line?
-A structured format like "Label: X / Reasoning: Y"? JSON?
-What are the tradeoffs?]
+Request a fixed two-line format:
+
+  Label: <interview | solo | panel | narrative>
+  Reasoning: <one sentence explaining the key structural signal>
+
+This makes parsing unambiguous: extract the label by splitting on "Label:" and
+taking the first word; extract reasoning by splitting on "Reasoning:". Both
+prefixes are stable, so no regex is needed — plain string operations suffice.
 ```
 
 ---
@@ -102,8 +107,16 @@ What are the tradeoffs?]
 **Edge cases to handle in the prompt:**
 
 ```
-[blank — what if labeled_examples is empty? What if the description is very
-short? How does your prompt handle these?]
+This is an internal utility function, not customer-facing — raise loudly rather
+than hiding problems silently.
+
+- labeled_examples is empty: print a warning to the user ("Warning: no labeled
+  examples provided — the LLM will classify without few-shot context") and
+  continue. The prompt is still valid; accuracy will just be lower.
+
+- description is very short (e.g. empty string or whitespace only): raise a
+  ValueError("Episode description is empty") so the caller knows immediately
+  rather than wasting an API call on a meaningless response.
 ```
 
 ---
@@ -111,21 +124,22 @@ short? How does your prompt handle these?]
 ## classify_episode(description, labeled_examples)
 
 ### What it does
+
 Classifies a single podcast episode description using the few-shot LLM classifier.
 Returns a dict with a label and reasoning.
 
 ### Inputs
 
-| Parameter | Type | Description |
-|---|---|---|
-| `description` | `str` | The episode description to classify. |
+| Parameter          | Type         | Description                                               |
+| ------------------ | ------------ | --------------------------------------------------------- |
+| `description`      | `str`        | The episode description to classify.                      |
 | `labeled_examples` | `list[dict]` | Labeled training examples from `load_labeled_examples()`. |
 
 ### Output
 
-| Return value | Type | Description |
-|---|---|---|
-| result | `dict` | Must have keys `"label"` and `"reasoning"`. `"label"` must be one of `VALID_LABELS` or `"unknown"`. |
+| Return value | Type   | Description                                                                                         |
+| ------------ | ------ | --------------------------------------------------------------------------------------------------- |
+| result       | `dict` | Must have keys `"label"` and `"reasoning"`. `"label"` must be one of `VALID_LABELS` or `"unknown"`. |
 
 ---
 
@@ -159,9 +173,7 @@ Extract the response text from:
 **Step 3 — Parse the response:**
 
 ```
-[blank — how do you extract the label and reasoning from the LLM's text output?
-What string operations or parsing logic do you need?
-This depends on the output format you chose in build_few_shot_prompt.]
+So we will parse the label field from teh .message.content
 ```
 
 ---
@@ -169,8 +181,7 @@ This depends on the output format you chose in build_few_shot_prompt.]
 **Step 4 — Validate the label:**
 
 ```
-[blank — what do you do if the LLM returns a label that isn't in VALID_LABELS?
-What should label be set to?]
+Setting label to unknown
 ```
 
 ---
@@ -181,6 +192,8 @@ What should label be set to?]
 [blank — what could go wrong? (Network error? Unparseable response?)
 What should the function return if something fails?
 Hint: the evaluation loop runs 20 calls — one bad response shouldn't crash everything.]
+
+That is a design decision, and we can just have a fallback like value error or error, or even better try catch block
 ```
 
 ---
@@ -208,29 +221,32 @@ any labels you're unsure about. Annotation quality is part of the lab.
 
 ## Implementation Notes
 
-*Fill this in after implementing and testing both functions.*
+_Fill this in after implementing and testing both functions._
 
 **Test: what does the raw LLM response look like for one episode?**
 
 ```
-Episode tested: [title]
-Raw response text: [paste it here]
+'Label: narrative\nReasoning: The episode is...'
+
 ```
 
 **How did you parse the label out of the response?**
 
 ```
-[describe the string operations — strip, split, lower, etc.]
+After feeding and calling the llm :
+Content = response.choices[0].message.content.strip
+which includes our reposnse (label and reasoning)
 ```
 
 **Did any episodes return `"unknown"`? If so, why?**
 
 ```
-[yes / no — if yes, what did the raw response look like?]
+No the tests all had labels
 ```
 
 **One thing about the output format that surprised you:**
 
 ```
-[your answer here]
+
+Nothing
 ```

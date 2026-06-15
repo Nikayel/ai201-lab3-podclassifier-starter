@@ -55,7 +55,29 @@ def build_few_shot_prompt(labeled_examples: list[dict], description: str) -> str
 
     Before writing code, complete specs/classifier-spec.md.
     """
-    return ""
+    examples_block = ""
+    for ex in labeled_examples:
+        examples_block += f"Title: {ex['title']}\nDescription: {ex['description']}\nLabel: {ex['label']}\n\n-----\n\n"
+
+    prompt = f"""You are classifying podcast episodes by their format. Classify the episode into exactly one of these four labels:
+
+- interview: a conversation between a host and one or more guests
+- solo: a single host speaking from memory, experience, or opinion — no guests, no assembled external sources
+- panel: multiple guests with roughly equal speaking time, often debating or discussing a topic together
+- narrative: a story assembled from external sources — interviews, archival audio, reporting — with a clear narrative arc
+
+Here are some labeled examples:
+
+{examples_block}
+Now classify this episode:
+
+Description: {description}
+
+Respond in exactly this format:
+Label: <interview | solo | panel | narrative>
+Reasoning: <one sentence explaining the key structural signal>"""
+
+    return prompt
 
 
 def classify_episode(description: str, labeled_examples: list[dict]) -> dict:
@@ -76,7 +98,32 @@ def classify_episode(description: str, labeled_examples: list[dict]) -> dict:
 
     Before writing code, complete specs/classifier-spec.md.
     """
+    prompt = build_few_shot_prompt(labeled_examples, description)
+    response = _client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "system", "content": prompt}],
+        max_tokens=200,
+        temperature=1.0,
+    )
+    content = response.choices[0].message.content.strip()
+    label = None
+    reasoning = None
+    try:
+        lines = content.split("\n")
+        for line in lines:
+            if line.startswith("Label:"):
+                label = line.split("Label:")[1].strip()
+            if line.startswith("Reasoning:"):
+                reasoning = line.split("Reasoning:")[1].strip()
+    except Exception:
+        pass
+
+    if label not in VALID_LABELS:
+        label = "unknown"
+    if reasoning is None:
+        reasoning = "No reasoning provided."
+
     return {
-        "label": None,
-        "reasoning": "Classifier not yet implemented. Complete Milestone 2.",
-    }
+        "label": label,
+        "reasoning": reasoning,
+    }   
